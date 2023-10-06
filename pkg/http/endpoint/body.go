@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -31,6 +32,9 @@ func (o *withRawBodyEndpointOption) apply(
 	}
 	opts.body = o.body
 	if o.contentType != "" {
+		if opts.headers == nil {
+			opts.headers = http.Header{}
+		}
 		opts.headers.Set("Content-Type", o.contentType)
 	}
 	return nil
