@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,14 +12,16 @@ import (
 )
 
 var (
-	ErrResponseReaded    = errors.New("endpoint: response readed")
-	ErrUnmappedMediaType = errors.New("endpoint: unmapped media type")
+	ErrInvalidUnmarshalTarget = errors.New("endpoint: invalid unmarshal target")
+	ErrResponseReaded         = errors.New("endpoint: response readed")
+	ErrUnmappedMediaType      = errors.New("endpoint: unmapped media type")
 )
 
 type Response interface {
 	Unmarshal(dest interface{}) error
 	Status() int
 	RawBody() (string, []byte, error)
+	RawBodyStream() (string, io.Reader, error)
 	Headers() http.Header
 	Close() error
 }
@@ -29,7 +32,7 @@ type response struct {
 }
 
 func (r *response) Unmarshal(dest interface{}) error {
-	contentType, body, err := r.RawBody()
+	contentType, bodyReader, err := r.RawBodyStream()
 	if err != nil {
 		return err
 	}
@@ -39,9 +42,39 @@ func (r *response) Unmarshal(dest interface{}) error {
 	}
 	switch mediaType {
 	case "application/json":
+		body, err := io.ReadAll(bodyReader)
+		if err != nil {
+			return err
+		}
 		return json.Unmarshal(body, dest)
 	case "application/edn":
+		body, err := io.ReadAll(bodyReader)
+		if err != nil {
+			return err
+		}
 		return edn.Unmarshal(body, dest)
+	case "application/x-gzip":
+		switch v := dest.(type) {
+		case *[]byte:
+			gzipReader, err := gzip.NewReader(bodyReader)
+			if err != nil {
+				return err
+			}
+
+			readed := 0
+			buffer := make([]byte, 1024)
+			for err == nil {
+				readed, err = gzipReader.Read(buffer)
+				if err != nil && !errors.Is(err, io.EOF) {
+					return err
+				}
+				*v = append(*v, buffer[:readed]...)
+			}
+
+			return nil
+		default:
+			return ErrInvalidUnmarshalTarget
+		}
 	default:
 		return ErrUnmappedMediaType
 	}
@@ -51,13 +84,21 @@ func (r *response) Status() int {
 	return r.Response.StatusCode
 }
 
-func (r *response) RawBody() (string, []byte, error) {
+func (r *response) RawBodyStream() (string, io.Reader, error) {
 	if r.readed {
 		return "", nil, ErrResponseReaded
 	}
 	r.readed = true
 	contentType := r.Response.Header.Get("content-type")
-	body, err := io.ReadAll(r.Response.Body)
+	return contentType, r.Response.Body, nil
+}
+
+func (r *response) RawBody() (string, []byte, error) {
+	contentType, bodyReader, err := r.RawBodyStream()
+	if err != nil {
+		return "", nil, err
+	}
+	body, err := io.ReadAll(bodyReader)
 	if err != nil {
 		return "", nil, err
 	}

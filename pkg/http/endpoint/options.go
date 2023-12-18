@@ -13,6 +13,7 @@ type endpointOptions struct {
 	body         io.Reader
 	query        url.Values
 	headers      http.Header
+	authFn       AuthFn
 	errAnalyzers []ErrAnalyzerFn
 }
 
