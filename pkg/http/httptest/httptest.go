@@ -3,14 +3,14 @@ package httptest
 import (
 	"net/http"
 	"net/url"
-	"testing"
 
 	"github.com/vitorsss/go-helpers/pkg/http/requester"
 )
 
 type Server interface {
 	Requester() requester.Requester
-	BaseURL(testing.T) string
+	RoundTripper() http.RoundTripper
+	BaseURL() string
 
 	RequestRecorder
 }
@@ -54,8 +54,27 @@ type ResponseRecorder interface {
 		status int,
 		body []byte,
 		header http.Header,
-	) ResponseRecorder
+	) ResponseTimesRecorder
+	ReturnJSON(
+		status int,
+		body interface{},
+		header http.Header,
+	) ResponseTimesRecorder
+	ReturnEDN(
+		status int,
+		body interface{},
+		header http.Header,
+	) ResponseTimesRecorder
 	DoAndReturn(
 		func(req *http.Request) (*http.Response, error),
-	) ResponseRecorder
+	) ResponseTimesRecorder
+}
+
+type ResponseTimesRecorder interface {
+	ResponseRecorder
+
+	Times(times int) ResponseRecorder
+	MaxTimes(times int)
+	MinTimes(times int)
+	AnyTimes()
 }

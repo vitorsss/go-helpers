@@ -26,9 +26,9 @@ func unwrapTestReporter(t TestReporter) TestReporter {
 	tr := t
 	switch nt := t.(type) {
 	case *cancelReporter:
-		tr = unwrapTestReporter(nt.t)
+		tr = unwrapTestReporter(nt.TestHelper)
 	case *nopTestHelper:
-		tr = unwrapTestReporter(nt.t)
+		tr = unwrapTestReporter(nt.TestReporter)
 	default:
 		// not wrapped
 	}
@@ -36,47 +36,36 @@ func unwrapTestReporter(t TestReporter) TestReporter {
 }
 
 type cancelReporter struct {
-	t      TestHelper
+	TestHelper
 	cancel func()
-}
-
-func (r *cancelReporter) Errorf(format string, args ...interface{}) {
-	r.t.Errorf(format, args...)
 }
 
 func (r *cancelReporter) Fatalf(format string, args ...interface{}) {
 	defer r.cancel()
-	r.t.Fatalf(format, args...)
+	r.TestHelper.Fatalf(format, args...)
 }
 
-func (r *cancelReporter) Helper() {
-	r.t.Helper()
-}
-
-func WithContext(ctx context.Context, t TestReporter) (TestHelper, context.Context) {
+func AsHelper(t TestReporter) TestHelper {
 	h, ok := t.(TestHelper)
 	if !ok {
 		h = NopTestHelper(t)
 	}
+	return h
+}
+
+func WithContext(ctx context.Context, t TestReporter) (TestHelper, context.Context) {
+	h := AsHelper(t)
 
 	ctx, cancel := context.WithCancel(ctx)
-	return &cancelReporter{t: h, cancel: cancel}, ctx
+	return &cancelReporter{TestHelper: h, cancel: cancel}, ctx
 }
 
 type nopTestHelper struct {
-	t TestReporter
-}
-
-func (h *nopTestHelper) Errorf(format string, args ...interface{}) {
-	h.t.Errorf(format, args...)
-}
-
-func (h *nopTestHelper) Fatalf(format string, args ...interface{}) {
-	h.t.Fatalf(format, args...)
+	TestReporter
 }
 
 func (h nopTestHelper) Helper() {}
 
 func NopTestHelper(t TestReporter) TestHelper {
-	return &nopTestHelper{t: t}
+	return &nopTestHelper{TestReporter: t}
 }
