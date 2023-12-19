@@ -188,9 +188,20 @@ func (e *endpoint) do(
 		return nil, err
 	}
 
-	res, err := e.Requester.Do(req)
-	if err != nil {
-		return nil, err
+	var res *http.Response
+
+	if opts.authFn != nil {
+		res, err = opts.authFn(ctx, e.Requester, req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if res == nil {
+		res, err = e.Requester.Do(req)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, errAnalyzer := range opts.errAnalyzers {

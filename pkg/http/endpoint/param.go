@@ -33,6 +33,7 @@ func WithParam[T int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | ui
 var (
 	paramStart = "{"
 	paramEnd   = "}"
+	paramOr    = "|"
 	tokenizer  = regexp.MustCompile(
 		fmt.Sprintf("%s([^%s]+)%s",
 			paramStart,
@@ -40,17 +41,33 @@ var (
 			paramEnd,
 		),
 	)
-	paramEndRegex = regexp.MustCompile(paramEnd)
+	paramLiteralRegex = regexp.MustCompile(`^"([^"]+)"$`)
+	paramEndRegex     = regexp.MustCompile(paramEnd)
+	defaultParamValue = "__empty__"
 )
 
 func (o *endpointOptions) replaceURLParams(urlString string) (string, error) {
+	return replaceURLParams(urlString, o.params, false)
+}
+
+func replaceURLParams(urlString string, params map[string]string, defaultParam bool) (string, error) {
 	missingKeys := []string{}
 	parsedURL := tokenizer.ReplaceAllFunc([]byte(urlString), func(b []byte) []byte {
-		key := string(b[1 : len(b)-1])
-		if value, ok := o.params[key]; ok {
-			return []byte(value)
+		param := string(b[1 : len(b)-1])
+		keys := strings.Split(param, paramOr)
+		for _, key := range keys {
+			if value, ok := params[key]; ok {
+				return []byte(value)
+			}
+			literal := paramLiteralRegex.FindSubmatch([]byte(key))
+			if literal != nil {
+				return literal[1]
+			}
 		}
-		missingKeys = append(missingKeys, key)
+		if defaultParam {
+			return []byte(defaultParamValue)
+		}
+		missingKeys = append(missingKeys, param)
 		return []byte{}
 	})
 	if len(missingKeys) > 0 {

@@ -6,14 +6,18 @@ import (
 )
 
 func joinURL(baseURI string, paths ...string) (string, error) {
-	parsedURL, err := url.Parse(baseURI)
+	baseURIToValidade, err := replaceURLParams(baseURI, map[string]string{}, true)
+	if err != nil {
+		return "", err
+	}
+	parsedURL, err := url.Parse(baseURIToValidade)
 	if err != nil {
 		return "", err
 	}
 	parsedURL = parsedURL.JoinPath(paths...)
 	urlStr := unescapedURLString(parsedURL)
 	_, err = url.Parse(urlStr)
-	return urlStr, err
+	return strings.ReplaceAll(urlStr, baseURIToValidade, baseURI), err
 }
 
 func unescapedURLString(u *url.URL) string {
