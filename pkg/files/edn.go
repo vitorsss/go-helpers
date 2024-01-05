@@ -4,6 +4,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/pkg/errors"
 	"olympos.io/encoding/edn"
 )
 
@@ -15,13 +16,13 @@ func ReadEDNFile[T any](filePath string) (*FileContent[T], error) {
 
 	rawContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read file")
 	}
 
 	var content T
 	err = edn.Unmarshal(rawContent, &content)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal edn content")
 	}
 
 	return &FileContent[T]{
@@ -37,7 +38,7 @@ func ReadEDNDirs[T any](dirNames []string, regex *regexp.Regexp) ([]FileContent[
 func WriteEDNFile(filePath string, content interface{}) error {
 	data, err := edn.Marshal(content)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to marshal end")
 	}
 	return WriteFile(filePath, data)
 }

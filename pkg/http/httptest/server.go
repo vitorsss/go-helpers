@@ -2,7 +2,6 @@ package httptest
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/vitorsss/go-helpers/pkg/http/requester"
 	"github.com/vitorsss/go-helpers/pkg/test"
 )

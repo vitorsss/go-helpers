@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/pkg/errors"
 	"olympos.io/encoding/edn"
 )
 
@@ -27,7 +28,7 @@ func (o *withRawBodyEndpointOption) apply(
 	}
 	_, err := o.body.Seek(0, io.SeekStart)
 	if err != nil {
-		o.err = err
+		o.err = errors.Wrap(err, "failed to reset body reader")
 		return o.err
 	}
 	opts.body = o.body
@@ -52,7 +53,7 @@ func WithJSONBody(content any) EndpointOption {
 	return &withRawBodyEndpointOption{
 		contentType: "application/json",
 		body:        bytes.NewReader(data),
-		err:         err,
+		err:         errors.Wrap(err, "failed to marshal json body"),
 	}
 }
 
@@ -61,7 +62,7 @@ func WithEDNBody(content any) EndpointOption {
 	return &withRawBodyEndpointOption{
 		contentType: "application/json",
 		body:        bytes.NewReader(data),
-		err:         err,
+		err:         errors.Wrap(err, "failed to marshal edn body"),
 	}
 }
 

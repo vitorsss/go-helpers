@@ -6,6 +6,8 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 func ReadCSVFile(filePath string, comma rune, hasHeaders bool) (*FileContent[[]map[string]string], error) {
@@ -16,7 +18,7 @@ func ReadCSVFile(filePath string, comma rune, hasHeaders bool) (*FileContent[[]m
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to open file")
 	}
 	defer file.Close()
 
@@ -29,7 +31,7 @@ func ReadCSVFile(filePath string, comma rune, hasHeaders bool) (*FileContent[[]m
 	if hasHeaders {
 		headers, err := csvReader.Read()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to read line")
 		}
 		for idx, header := range headers {
 			headerByIndex[idx] = header
@@ -49,7 +51,7 @@ func ReadCSVFile(filePath string, comma rune, hasHeaders bool) (*FileContent[[]m
 		content = append(content, lineContent)
 	}
 	if err != nil && err != io.EOF {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read line")
 	}
 
 	return &FileContent[[]map[string]string]{
