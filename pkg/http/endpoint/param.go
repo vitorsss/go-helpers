@@ -2,10 +2,11 @@ package endpoint
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 var ErrInvalidURLParams = errors.New("endpoint: invalid url params")
@@ -71,7 +72,7 @@ func replaceURLParams(urlString string, params map[string]string, defaultParam b
 		return []byte{}
 	})
 	if len(missingKeys) > 0 {
-		return "", fmt.Errorf("endpoint: missing params - %v", missingKeys)
+		return "", errors.Errorf("endpoint: missing params - %v", missingKeys)
 	}
 	return string(parsedURL), nil
 }
@@ -82,10 +83,10 @@ func validateURLParams(urlStr string) error {
 		ends := paramEndRegex.FindAllIndex([]byte(part), 2)
 		if idx == 0 {
 			if len(ends) != 0 {
-				return ErrInvalidURLParams
+				return errors.Wrap(ErrInvalidURLParams, "failed to find param end token")
 			}
 		} else if len(ends) != 1 {
-			return ErrInvalidURLParams
+			return errors.Wrap(ErrInvalidURLParams, "failed to find single param end token")
 		}
 	}
 	return nil

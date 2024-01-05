@@ -3,11 +3,11 @@ package httptest
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"math"
 	"net/http"
 
+	"github.com/pkg/errors"
 	"olympos.io/encoding/edn"
 )
 

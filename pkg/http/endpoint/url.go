@@ -3,6 +3,8 @@ package endpoint
 import (
 	"net/url"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func joinURL(baseURI string, paths ...string) (string, error) {
@@ -12,12 +14,12 @@ func joinURL(baseURI string, paths ...string) (string, error) {
 	}
 	parsedURL, err := url.Parse(baseURIToValidade)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to parse base URI")
 	}
 	parsedURL = parsedURL.JoinPath(paths...)
 	urlStr := unescapedURLString(parsedURL)
 	_, err = url.Parse(urlStr)
-	return strings.ReplaceAll(urlStr, baseURIToValidade, baseURI), err
+	return strings.ReplaceAll(urlStr, baseURIToValidade, baseURI), errors.Wrap(err, "failed to parse URL")
 }
 
 func unescapedURLString(u *url.URL) string {

@@ -1,13 +1,14 @@
 package files
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"regexp"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -28,7 +29,7 @@ type FileContent[T any] struct {
 func ReadFileInfo(filePath string) (*FileInfo, error) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to stat file")
 	}
 
 	return &FileInfo{
@@ -51,7 +52,7 @@ func readDirs[T any](dirNames []string, regex *regexp.Regexp, readFileFn func(fi
 	for _, dirName := range dirNames {
 		dirEntries, err := os.ReadDir(dirName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to read dir")
 		}
 		for _, dirEntry := range dirEntries {
 			fileName := path.Join(dirName, dirEntry.Name())
@@ -60,7 +61,7 @@ func readDirs[T any](dirNames []string, regex *regexp.Regexp, readFileFn func(fi
 			} else if regex.MatchString(fileName) {
 				fileContent, err := readFileFn(fileName)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "failed to read file content")
 				}
 				result = append(result, *fileContent)
 			}
@@ -88,21 +89,22 @@ func CreateDatedOutput(baseDir string, fileName string, extension string) (io.Wr
 	)
 	err := os.MkdirAll(path.Dir(filePath), 0o777)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create directories")
 	}
-	return os.Create(
+	w, err := os.Create(
 		filePath,
 	)
+	return w, errors.Wrap(err, "failed to create file")
 }
 
 func WriteFile(filePath string, content []byte) error {
 	err := os.MkdirAll(path.Dir(filePath), 0o777)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to create directories")
 	}
 	err = os.Remove(filePath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+		return errors.Wrap(err, "failed to remove existing file")
 	}
-	return os.WriteFile(filePath, content, 0o444)
+	return errors.Wrap(os.WriteFile(filePath, content, 0o444), "failed to write file")
 }

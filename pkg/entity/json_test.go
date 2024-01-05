@@ -2,9 +2,9 @@ package entity_test
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitorsss/go-helpers/pkg/assertutil"
 	"github.com/vitorsss/go-helpers/pkg/entity"
@@ -50,7 +50,7 @@ func Test_JSONStringWrapper_UnmarshalJSON(t *testing.T) {
 			},
 			want: &want{
 				value: entity.JSONStringWrapper[testEntity]{},
-				err:   errors.New("json: cannot unmarshal string into Go struct field testEntity.id of type int"),
+				err:   errors.New("failed to unmarshal content: json: cannot unmarshal string into Go struct field testEntity.id of type int"),
 			},
 		},
 		{
@@ -60,7 +60,7 @@ func Test_JSONStringWrapper_UnmarshalJSON(t *testing.T) {
 			},
 			want: &want{
 				value: entity.JSONStringWrapper[testEntity]{},
-				err:   errors.New("json: cannot unmarshal number into Go value of type string"),
+				err:   errors.New("failed to unmarshal data string: json: cannot unmarshal number into Go value of type string"),
 			},
 		},
 	}
@@ -114,7 +114,7 @@ func Test_JSONStringWrapper_MarshalJSON(t *testing.T) {
 			},
 			want: &want{
 				data: ``,
-				err:  errors.New("json: error calling MarshalJSON for type entity.JSONStringWrapper[interface {}]: json: unsupported type: chan int"),
+				err:  errors.New("json: error calling MarshalJSON for type entity.JSONStringWrapper[interface {}]: failed to marshal content: json: unsupported type: chan int"),
 			},
 		},
 	}

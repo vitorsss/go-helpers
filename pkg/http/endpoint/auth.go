@@ -3,11 +3,11 @@ package endpoint
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/icholy/digest"
+	"github.com/pkg/errors"
 	"github.com/vitorsss/go-helpers/pkg/http/requester"
 )
 
@@ -99,7 +99,7 @@ func (o *withCustomAuthHeaderEndpointOption) apply(
 	) (*http.Response, error) {
 		key, value, err := o.authFn(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to recover auth")
 		}
 		request.Header.Add(key, value)
 		return nil, nil
@@ -129,10 +129,10 @@ func (o *withDigestAuthEndpointOption) apply(
 	) (*http.Response, error) {
 		res, err := requester.Do(request)
 		if err != nil {
-			return res, err
+			return res, errors.Wrap(err, "failed to execute digest challenge request")
 		}
 		if res == nil {
-			return nil, errors.New("WithDigestAuth.authFn: invalid response state")
+			return nil, errors.New("invalid response state")
 		}
 		if res.StatusCode != http.StatusUnauthorized {
 			return res, nil
@@ -142,7 +142,7 @@ func (o *withDigestAuthEndpointOption) apply(
 
 		chal, err := digest.ParseChallenge(header)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to parse challenge")
 		}
 
 		cred, err := digest.Digest(chal, digest.Options{
@@ -154,7 +154,7 @@ func (o *withDigestAuthEndpointOption) apply(
 			Count:    1,
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to generate credentials")
 		}
 		request.Header.Set("Authorization", cred.String())
 

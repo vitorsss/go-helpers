@@ -2,9 +2,10 @@ package endpoint
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 type ErrAnalyzerFn func(res *http.Response) error
@@ -33,7 +34,7 @@ func defaultErrAnalyzer(res *http.Response) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("endpoint: response error - %s", string(content))
+		return errors.Errorf("endpoint: response error - %s", string(content))
 	}
 	return nil
 }

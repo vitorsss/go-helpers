@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
 )
 
 type endpointOptions struct {
@@ -71,7 +73,7 @@ func (e *endpoint) parseOptionsToRequest(
 		body,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create request")
 	}
 
 	if opts.headers != nil {
