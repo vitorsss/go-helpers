@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/vitorsss/go-helpers/pkg/http/requester"
+	"github.com/vitorsss/go-helpers/pkg/logs"
 )
 
 type Endpoint interface {
@@ -60,11 +61,13 @@ func NewEndpoint(
 ) Endpoint {
 	urlStr, err := joinURL(baseURI, pathURI)
 	if err != nil {
+		logs.Logger.Error().Err(err).Send()
 		panic(err)
 	}
 
 	err = validateURLParams(urlStr)
 	if err != nil {
+		logs.Logger.Error().Err(err).Send()
 		panic(err)
 	}
 
@@ -213,5 +216,6 @@ func (e *endpoint) do(
 
 	return &response{
 		Response: res,
+		ctx:      ctx,
 	}, nil
 }

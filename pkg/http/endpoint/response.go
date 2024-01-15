@@ -1,7 +1,7 @@
 package endpoint
 
 import (
-	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
 	"mime"
@@ -28,6 +28,7 @@ type Response interface {
 
 type response struct {
 	Response *http.Response
+	ctx      context.Context
 	readed   bool
 }
 
@@ -56,7 +57,12 @@ func (r *response) Unmarshal(dest interface{}) error {
 	case "application/x-gzip":
 		switch v := dest.(type) {
 		case *[]byte:
-			gzipReader, err := gzip.NewReader(bodyReader)
+			gzipReader, err := gzipPool.Acquire(r.ctx)
+			if err != nil {
+				return errors.Wrap(err, "failed to acquire gzip reader")
+			}
+			defer gzipReader.Release()
+			err = gzipReader.Value().Reset(bodyReader)
 			if err != nil {
 				return errors.Wrap(err, "failed to read response body")
 			}
@@ -64,7 +70,7 @@ func (r *response) Unmarshal(dest interface{}) error {
 			readed := 0
 			buffer := make([]byte, 1024)
 			for err == nil {
-				readed, err = gzipReader.Read(buffer)
+				readed, err = gzipReader.Value().Read(buffer)
 				if err != nil && !errors.Is(err, io.EOF) {
 					return errors.Wrap(err, "failed to read gziped content")
 				}
