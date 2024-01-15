@@ -57,7 +57,7 @@ func (r *response) Unmarshal(dest interface{}) error {
 	case "application/x-gzip":
 		switch v := dest.(type) {
 		case *[]byte:
-			gzipReader, err := gzipPool.Acquire(r.ctx)
+			gzipReader, err := gzipReaderPool.Acquire(r.ctx)
 			if err != nil {
 				return errors.Wrap(err, "failed to acquire gzip reader")
 			}

@@ -8,13 +8,13 @@ import (
 	"github.com/vitorsss/go-helpers/pkg/logs"
 )
 
-var gzipPool *puddle.Pool[*gzip.Reader]
+var gzipReaderPool *puddle.Pool[*gzip.Reader]
 
 func init() {
 	var err error
-	gzipPool, err = puddle.NewPool(&puddle.Config[*gzip.Reader]{
+	gzipReaderPool, err = puddle.NewPool(&puddle.Config[*gzip.Reader]{
 		Constructor: func(ctx context.Context) (res *gzip.Reader, err error) {
-			return nil, nil
+			return &gzip.Reader{}, nil
 		},
 		Destructor: func(res *gzip.Reader) {
 			res.Close()
