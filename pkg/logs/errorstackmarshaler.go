@@ -1,7 +1,6 @@
 package logs
 
 import (
-	"regexp"
 	"runtime"
 	"strings"
 
@@ -38,14 +37,6 @@ func isGoSource(source string) bool {
 	return strings.HasPrefix(source, goroot)
 }
 
-var (
-	goPathRegex  = regexp.MustCompile("/go/(pkg/mod/)?")
-	removeGoPath = func(source string) string {
-		sourceParts := goPathRegex.Split(source, 2)
-		return sourceParts[len(sourceParts)-1]
-	}
-)
-
 func getErrorFrames(err error) *stackTrace {
 	if err == nil {
 		return nil
@@ -71,7 +62,7 @@ func getErrorFrames(err error) *stackTrace {
 
 		funcName := fn.Name()
 		result.Frames = append(result.Frames, frame{
-			Source: removeGoPath(file),
+			Source: file,
 			Line:   line,
 			Func:   removePackageName(funcName),
 		})
