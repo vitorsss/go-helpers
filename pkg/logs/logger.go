@@ -25,7 +25,6 @@ func init() {
 		Logger = log.Logger
 	} else {
 		// will probably only use a console decorator during development
-		removeGoPath = func(source string) string { return source }
 		Logger = log.Logger.Output(zerolog.NewConsoleWriter(
 			func(w *zerolog.ConsoleWriter) {
 				w.TimeFormat = time.RFC3339
