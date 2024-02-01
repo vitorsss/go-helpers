@@ -49,6 +49,10 @@ func newEndpointOptions(
 		}
 	}
 
+	if len(opts.errAnalyzers) == 0 {
+		opts.errAnalyzers = []ErrAnalyzerFn{defaultErrAnalyzer}
+	}
+
 	return opts, nil
 }
 
