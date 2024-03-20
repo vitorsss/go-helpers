@@ -60,7 +60,7 @@ func WithJSONBody(content any) EndpointOption {
 func WithEDNBody(content any) EndpointOption {
 	data, err := edn.Marshal(content)
 	return &withRawBodyEndpointOption{
-		contentType: "application/json",
+		contentType: "application/edn",
 		body:        bytes.NewReader(data),
 		err:         errors.Wrap(err, "failed to marshal edn body"),
 	}
