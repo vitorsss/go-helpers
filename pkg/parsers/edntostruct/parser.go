@@ -1,25 +1,36 @@
 package edntostruct
 
 import (
-	"bytes"
 	"fmt"
 	"go/token"
 	"go/types"
 	"math/big"
-	"regexp"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
-	"mvdan.cc/gofumpt/format"
 	"olympos.io/encoding/edn"
 )
 
-func parseEDNToGolangStructs(
-	packagePath string,
+type Parser struct {
+	options *options
+}
+
+func NewParser(opts ...Option) *Parser {
+	opt := defaultOptions()
+
+	for _, optFn := range opts {
+		optFn(opt)
+	}
+
+	return &Parser{
+		options: opt,
+	}
+}
+
+func (p *Parser) ParseEDNToGolang(
+	destPackage *types.Package,
 	prefix string,
 	ednContent []byte,
 ) ([]byte, error) {
@@ -29,56 +40,20 @@ func parseEDNToGolangStructs(
 		return nil, err
 	}
 
-	destPackage := types.NewPackage(packagePath, packagePath[strings.LastIndex(packagePath, "/")+1:])
-
-	_, err = parseEDNTypeToGolangStruct(
+	_, err = p.parseEDNTypeToGolangStruct(
 		destPackage,
-		defaultTagTypes,
 		prefix,
 		ednMap,
 	)
 	if err != nil {
 		return nil, err
 	}
-	qualifier := func(other *types.Package) string {
-		if destPackage == other {
-			return ""
-		}
-		return other.Name()
-	}
-	buffer := bytes.NewBufferString(fmt.Sprintf("package %s", destPackage.Name()))
-	buffer.WriteString("\n\nimport (\n")
-	for _, importParckage := range destPackage.Imports() {
-		buffer.WriteString(fmt.Sprintf(`%s "%s"`, importParckage.Name(), importParckage.Path()))
-		buffer.WriteString("\n")
-	}
-	buffer.WriteString(")")
-	scope := destPackage.Scope()
-	for _, name := range scope.Names() {
-		buffer.WriteString("\n\n")
-		unformatted := types.ObjectString(scope.Lookup(name), qualifier)
-		buffer.Write([]byte(unformatted))
-	}
 
-	fmt.Println(buffer.String())
-
-	return format.Source(
-		buffer.Bytes(),
-		format.Options{
-			ModulePath: packagePath,
-			ExtraRules: true,
-		},
-	)
+	return printPackage(destPackage)
 }
 
-type fieldTagPair struct {
-	field *types.Var
-	tag   string
-}
-
-func parseEDNTypeToGolangStruct(
+func (p *Parser) parseEDNTypeToGolangStruct(
 	destPackage *types.Package,
-	tagTypes map[string]TypeFn,
 	prefix string,
 	ednType map[interface{}]interface{},
 ) (types.Type, error) {
@@ -99,9 +74,8 @@ func parseEDNTypeToGolangStruct(
 			namespace = keyParts[0]
 		}
 
-		parsedField, tag, err := parseEDNTypeToGolangField(
+		parsedField, tag, err := p.parseEDNTypeToGolangField(
 			destPackage,
-			tagTypes,
 			fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
 			key,
 			keyParts[len(keyParts)-1],
@@ -119,7 +93,7 @@ func parseEDNTypeToGolangStruct(
 
 	structs := make([]*types.Named, 0, len(byNamespace))
 	for namespace, fields := range byNamespace {
-		object := createStruct(
+		object := createStructOrderedFields(
 			destPackage,
 			prefix,
 			namespace,
@@ -144,39 +118,8 @@ func parseEDNTypeToGolangStruct(
 	return result, nil
 }
 
-func createStruct(
+func (p *Parser) parseEDNTypeToGolangField(
 	destPackage *types.Package,
-	prefix string,
-	name string,
-	fieldTagPairs []fieldTagPair,
-) *types.Named {
-	slices.SortFunc(fieldTagPairs, func(a, b fieldTagPair) int {
-		return strings.Compare(a.field.Name(), b.field.Name())
-	})
-	fields := make([]*types.Var, 0, len(fieldTagPairs))
-	tags := make([]string, 0, len(fieldTagPairs))
-	for _, pair := range fieldTagPairs {
-		fields = append(fields, pair.field)
-		tags = append(tags, pair.tag)
-	}
-	structType := types.NewStruct(fields, tags)
-	typeName := types.NewTypeName(
-		token.NoPos,
-		destPackage,
-		fmt.Sprintf("%s%s", prefix, strcase.ToCamel(name)),
-		structType,
-	)
-	object := types.NewNamed(
-		typeName,
-		structType,
-		nil,
-	)
-	return object
-}
-
-func parseEDNTypeToGolangField(
-	destPackage *types.Package,
-	tagTypes map[string]TypeFn,
 	prefix string,
 	key string,
 	name string,
@@ -191,9 +134,8 @@ func parseEDNTypeToGolangField(
 	case bool:
 		fieldType = types.Typ[types.Bool]
 	case map[interface{}]interface{}:
-		structBase, err := parseEDNTypeToGolangStruct(
+		structBase, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
-			tagTypes,
 			prefix,
 			v,
 		)
@@ -205,9 +147,8 @@ func parseEDNTypeToGolangField(
 		if len(v) == 0 {
 			return nil, "", errors.New("empty list conversion")
 		}
-		varType, _, err = parseEDNTypeToGolangField(
+		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
-			tagTypes,
 			prefix,
 			key,
 			name,
@@ -225,9 +166,8 @@ func parseEDNTypeToGolangField(
 		for k := range v {
 			keys = append(keys, k)
 		}
-		varType, _, err = parseEDNTypeToGolangField(
+		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
-			tagTypes,
 			prefix,
 			key,
 			name,
@@ -238,9 +178,8 @@ func parseEDNTypeToGolangField(
 		}
 		fieldType = nil // TODO: should create an Set type to handle this
 	case *interface{}:
-		varType, _, err = parseEDNTypeToGolangField(
+		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
-			tagTypes,
 			prefix,
 			key,
 			name,
@@ -255,38 +194,38 @@ func parseEDNTypeToGolangField(
 	case int, int8, int16, int32, int64:
 		fieldType = types.Typ[types.Int64]
 	case time.Time:
-		typeFn, ok := tagTypes["inst"]
+		typeFn, ok := p.options.tagTypes["inst"]
 		if !ok {
 			return nil, "", errors.New("unmapped tagname")
 		}
 		var importPackage *types.Package
 		importPackage, fieldType = typeFn()
-		fmt.Println(importPackage, fieldType)
 		addImportFixName(destPackage, importPackage)
 	case edn.Tag:
-		typeFn, ok := tagTypes[v.Tagname]
+		typeFn, ok := p.options.tagTypes[v.Tagname]
 		if !ok {
 			return nil, "", errors.New("unmapped tagname")
 		}
 		var importPackage *types.Package
 		importPackage, fieldType = typeFn()
-		fmt.Println(importPackage, fieldType)
 		addImportFixName(destPackage, importPackage)
 	case edn.Keyword:
-		fieldType = nil // TODO: should create an Enum type to handle this
-		// keyParts := strings.Split(string(v), "/")
-		// keyName := strcase.ToCamel(keyParts[0])
-		// namespaces := map[string]bool{
-		// 	keyParts[0]: true,
-		// }
-		// if len(keyParts) == 1 {
-		// 	keyName = strcase.ToCamel(name)
-		// 	namespaces = map[string]bool{}
-		// }
-		// result.Object = &object{
-		// 	Name:       fmt.Sprintf("%s%sCode", prefix, keyName),
-		// 	Namespaces: namespaces,
-		// }
+		keyParts := strings.Split(string(v), "/")
+		keyName := name
+		namespace := ""
+		if len(keyParts) > 1 {
+			namespace = keyParts[0]
+		}
+		fieldType, err = newEnumType(
+			destPackage,
+			prefix,
+			namespace,
+			keyName,
+			keyParts[len(keyParts)-1],
+		)
+		if err != nil {
+			return nil, "", err
+		}
 	case nil:
 		return nil, "", errors.New("nil value")
 	default:
@@ -298,35 +237,4 @@ func parseEDNTypeToGolangField(
 	}
 	tag := fmt.Sprintf(`json:"%s" edn:"%s"`, strcase.ToSnake(name), key)
 	return types.NewVar(token.NoPos, destPackage, nameCamel, fieldType), tag, nil
-}
-
-func addImportFixName(
-	destPackage *types.Package,
-	importPackage *types.Package,
-) {
-	imports := destPackage.Imports()
-	for _, existingImport := range imports {
-		if existingImport.Path() == importPackage.Path() {
-			importPackage.SetName(existingImport.Name())
-			return
-		}
-		if existingImport.Name() == importPackage.Name() {
-			changed := false
-			name := regexp.MustCompile("\\d+").
-				ReplaceAllStringFunc(
-					importPackage.Name(),
-					func(s string) string {
-						changed = true
-						i, _ := strconv.Atoi(s)
-						return strconv.Itoa(i + 1)
-					},
-				)
-			if !changed {
-				name = fmt.Sprintf("%s1", name)
-			}
-			importPackage.SetName(name)
-		}
-	}
-	imports = append(imports, importPackage)
-	destPackage.SetImports(imports)
 }
