@@ -176,7 +176,14 @@ func (p *Parser) parseEDNTypeToGolangField(
 		if err != nil {
 			return nil, "", err
 		}
-		fieldType = nil // TODO: should create an Set type to handle this
+		elem := varType.Type()
+		if pointer, ok := elem.(*types.Pointer); ok {
+			elem = pointer.Elem()
+		}
+		fieldType, err = newSetType(destPackage, elem)
+		if err != nil {
+			return nil, "", err
+		}
 	case *interface{}:
 		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
