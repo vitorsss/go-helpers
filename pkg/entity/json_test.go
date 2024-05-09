@@ -10,10 +10,6 @@ import (
 	"github.com/vitorsss/go-helpers/pkg/entity"
 )
 
-type testEntity struct {
-	ID int `json:"id"`
-}
-
 func Test_JSONStringWrapper_UnmarshalJSON(t *testing.T) {
 	type args struct {
 		data []byte
