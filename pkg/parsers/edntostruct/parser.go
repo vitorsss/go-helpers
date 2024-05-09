@@ -69,6 +69,7 @@ func (p *Parser) parseEDNTypeToGolangStruct(
 			return nil, errors.New("unmapped key type")
 		}
 		keyParts := strings.Split(key, "/")
+		name := keyParts[len(keyParts)-1]
 		namespace := ""
 		if len(keyParts) > 1 {
 			namespace = keyParts[0]
@@ -77,8 +78,8 @@ func (p *Parser) parseEDNTypeToGolangStruct(
 		parsedField, tag, err := p.parseEDNTypeToGolangField(
 			destPackage,
 			fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
-			key,
-			keyParts[len(keyParts)-1],
+			namespace,
+			name,
 			iVal,
 		)
 		if err != nil {
@@ -121,7 +122,7 @@ func (p *Parser) parseEDNTypeToGolangStruct(
 func (p *Parser) parseEDNTypeToGolangField(
 	destPackage *types.Package,
 	prefix string,
-	key string,
+	namespace string,
 	name string,
 	fieldVal interface{},
 ) (*types.Var, string, error) {
@@ -134,6 +135,9 @@ func (p *Parser) parseEDNTypeToGolangField(
 	case bool:
 		fieldType = types.Typ[types.Bool]
 	case map[interface{}]interface{}:
+		if namespace == "" {
+			prefix = fmt.Sprintf("%s%s", prefix, strcase.ToCamel(name))
+		}
 		structBase, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
 			prefix,
@@ -150,7 +154,7 @@ func (p *Parser) parseEDNTypeToGolangField(
 		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
 			prefix,
-			key,
+			namespace,
 			name,
 			v[0],
 		)
@@ -169,7 +173,7 @@ func (p *Parser) parseEDNTypeToGolangField(
 		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
 			prefix,
-			key,
+			namespace,
 			name,
 			keys[0],
 		)
@@ -188,7 +192,7 @@ func (p *Parser) parseEDNTypeToGolangField(
 		varType, _, err = p.parseEDNTypeToGolangField(
 			destPackage,
 			prefix,
-			key,
+			namespace,
 			name,
 			*v,
 		)
@@ -241,6 +245,10 @@ func (p *Parser) parseEDNTypeToGolangField(
 	nameCamel := strcase.ToCamel(name)
 	if nameCamel == "Id" {
 		nameCamel = "ID"
+	}
+	key := name
+	if namespace != "" {
+		key = fmt.Sprintf("%s/%s", namespace, key)
 	}
 	tag := fmt.Sprintf(`json:"%s" edn:"%s"`, strcase.ToSnake(name), key)
 	return types.NewVar(token.NoPos, destPackage, nameCamel, fieldType), tag, nil
