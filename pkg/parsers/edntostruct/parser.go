@@ -211,15 +211,21 @@ func (p *Parser) parseEDNTypeToGolangField(
 		if len(keyParts) > 1 {
 			namespace = keyParts[0]
 		}
-		fieldType, err = newEnumType(
-			destPackage,
-			prefix,
-			namespace,
-			keyName,
-			keyParts[len(keyParts)-1],
-		)
-		if err != nil {
-			return nil, "", err
+		name := fmt.Sprintf("%s%sCode", prefix, strcase.ToCamel(keyName))
+		if fn, ok := p.options.namedTypes[name]; ok {
+			var importPackage *types.Package
+			importPackage, fieldType = fn()
+			addImportFixName(destPackage, importPackage)
+		} else {
+			fieldType, err = newEnumType(
+				destPackage,
+				namespace,
+				name,
+				keyParts[len(keyParts)-1],
+			)
+			if err != nil {
+				return nil, "", err
+			}
 		}
 	case time.Time:
 		tagType = "inst"

@@ -2,7 +2,6 @@ package edntostruct
 
 import (
 	"bytes"
-	"fmt"
 	"go/token"
 	"go/types"
 
@@ -83,14 +82,13 @@ func (e `)
 
 func newEnumType(
 	destPackage *types.Package,
-	prefix string,
 	namespace string,
 	name string,
 	values ...string,
 ) (types.Type, error) {
 	enumType := &enumType{
 		namespace: namespace,
-		name:      fmt.Sprintf("%s%sCode", prefix, strcase.ToCamel(name)),
+		name:      name,
 		values:    values,
 	}
 
