@@ -64,8 +64,6 @@ type SimpleNamespacedNamespaceSub struct {
 package path
 
 import (
-	errors "errors"
-
 	edn "olympos.io/encoding/edn"
 )
 
@@ -209,8 +207,6 @@ func (e KeywordEnumNamesssEnum2Code) MarshalEDN() ([]byte, error) {
 package path
 
 import (
-	errors "errors"
-
 	entity "github.com/vitorsss/go-helpers/pkg/entity"
 	edn "olympos.io/encoding/edn"
 )

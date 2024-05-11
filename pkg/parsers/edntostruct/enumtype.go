@@ -110,7 +110,9 @@ func newEnumType(
 		return nil, errors.New("unsuported mixed types")
 	}
 	addImportFixName(destPackage, EDNPackage)
-	addImportFixName(destPackage, ErrorsPackage)
+	if namespace != "" {
+		addImportFixName(destPackage, ErrorsPackage)
+	}
 
 	return object, nil
 }
