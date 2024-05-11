@@ -22,6 +22,8 @@ func newSetType(
 	switch v := elem.(type) {
 	case *types.Named:
 		typeName = v.Obj()
+	case *types.Basic:
+		typeName = types.Universe.Lookup(v.String()).(*types.TypeName)
 	default:
 		return nil, errors.New("unmapped set type")
 	}
