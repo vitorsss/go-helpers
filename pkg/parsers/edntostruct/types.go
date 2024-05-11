@@ -5,18 +5,24 @@ import (
 	"go/types"
 )
 
-type TypeFn func() (*types.Package, *types.Named)
+type TypeFn func() (*types.Package, types.Type)
 
 type TypeExtraStringer interface {
 	ExtraString() string
 }
 
-func TimeTypeFn() (*types.Package, *types.Named) {
+func TimeTypeFn() (*types.Package, types.Type) {
 	return TimePackage, TimeType
 }
 
-func UUIDTypeFn() (*types.Package, *types.Named) {
+func UUIDTypeFn() (*types.Package, types.Type) {
 	return UUIDPackage, UUIDType
+}
+
+func genericTypeFn(t types.Type) TypeFn {
+	return func() (*types.Package, types.Type) {
+		return nil, t
+	}
 }
 
 var (
