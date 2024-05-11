@@ -3,7 +3,8 @@ package edntostruct
 import "go/types"
 
 type options struct {
-	tagTypes map[string]TypeFn
+	tagTypes   map[string]TypeFn
+	namedTypes map[string]NamedTypeFn
 }
 
 func defaultOptions() *options {
@@ -16,6 +17,7 @@ func defaultOptions() *options {
 			"float64": genericTypeFn(types.Typ[types.Float64]),
 			"int64":   genericTypeFn(types.Typ[types.Int64]),
 		},
+		namedTypes: map[string]NamedTypeFn{},
 	}
 }
 
@@ -24,5 +26,11 @@ type Option func(opt *options)
 func WithTagTypeFn(tag string, fn TypeFn) Option {
 	return func(opt *options) {
 		opt.tagTypes[tag] = fn
+	}
+}
+
+func WithNamedTypeFn(name string, fn NamedTypeFn) Option {
+	return func(opt *options) {
+		opt.namedTypes[name] = fn
 	}
 }

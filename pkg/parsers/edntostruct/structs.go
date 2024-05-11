@@ -1,13 +1,10 @@
 package edntostruct
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 	"slices"
 	"strings"
-
-	"github.com/iancoleman/strcase"
 )
 
 type fieldTagPair struct {
@@ -17,7 +14,6 @@ type fieldTagPair struct {
 
 func createStructOrderedFields(
 	destPackage *types.Package,
-	prefix string,
 	name string,
 	fieldTagPairs []fieldTagPair,
 ) *types.Named {
@@ -34,7 +30,7 @@ func createStructOrderedFields(
 	typeName := types.NewTypeName(
 		token.NoPos,
 		destPackage,
-		fmt.Sprintf("%s%s", prefix, strcase.ToCamel(name)),
+		name,
 		structType,
 	)
 	object := types.NewNamed(

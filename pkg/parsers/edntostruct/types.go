@@ -6,6 +6,7 @@ import (
 )
 
 type TypeFn func() (*types.Package, types.Type)
+type NamedTypeFn func() (*types.Package, *types.Named)
 
 type TypeExtraStringer interface {
 	ExtraString() string
