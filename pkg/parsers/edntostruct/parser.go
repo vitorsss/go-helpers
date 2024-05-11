@@ -127,13 +127,10 @@ func (p *Parser) parseEDNTypeToGolangField(
 	fieldVal interface{},
 ) (*types.Var, string, error) {
 	var fieldType types.Type
+	var tagType string
 	var varType *types.Var
 	var err error
 	switch v := fieldVal.(type) {
-	case string:
-		fieldType = types.Typ[types.String]
-	case bool:
-		fieldType = types.Typ[types.Bool]
 	case map[interface{}]interface{}:
 		if namespace == "" {
 			prefix = fmt.Sprintf("%s%s", prefix, strcase.ToCamel(name))
@@ -200,26 +197,6 @@ func (p *Parser) parseEDNTypeToGolangField(
 			return nil, "", err
 		}
 		fieldType = types.NewPointer(varType.Type())
-	case float32, float64, *big.Float:
-		fieldType = types.Typ[types.Float64]
-	case int, int8, int16, int32, int64:
-		fieldType = types.Typ[types.Int64]
-	case time.Time:
-		typeFn, ok := p.options.tagTypes["inst"]
-		if !ok {
-			return nil, "", errors.New("unmapped tagname")
-		}
-		var importPackage *types.Package
-		importPackage, fieldType = typeFn()
-		addImportFixName(destPackage, importPackage)
-	case edn.Tag:
-		typeFn, ok := p.options.tagTypes[v.Tagname]
-		if !ok {
-			return nil, "", errors.New("unmapped tagname")
-		}
-		var importPackage *types.Package
-		importPackage, fieldType = typeFn()
-		addImportFixName(destPackage, importPackage)
 	case edn.Keyword:
 		keyParts := strings.Split(string(v), "/")
 		keyName := name
@@ -237,10 +214,33 @@ func (p *Parser) parseEDNTypeToGolangField(
 		if err != nil {
 			return nil, "", err
 		}
+	case time.Time:
+		tagType = "inst"
+	case edn.Tag:
+		tagType = v.Tagname
+	case float32, float64, *big.Float:
+		tagType = "float64"
+	case int, int8, int16, int32, int64:
+		tagType = "int64"
+	case string:
+		tagType = "string"
+	case bool:
+		tagType = "bool"
 	case nil:
 		return nil, "", errors.New("nil value")
 	default:
 		return nil, "", errors.Errorf("unmapped value type: %#v", v)
+	}
+	if tagType != "" {
+		typeFn, ok := p.options.tagTypes[tagType]
+		if !ok {
+			return nil, "", errors.New("unmapped tagname")
+		}
+		var importPackage *types.Package
+		importPackage, fieldType = typeFn()
+		if importPackage != nil {
+			addImportFixName(destPackage, importPackage)
+		}
 	}
 	nameCamel := strcase.ToCamel(name)
 	if nameCamel == "Id" {

@@ -10,6 +10,9 @@ func addImportFixName(
 	destPackage *types.Package,
 	importPackage *types.Package,
 ) {
+	if destPackage.Path() == importPackage.Path() {
+		return
+	}
 	imports := destPackage.Imports()
 	for _, existingImport := range imports {
 		if existingImport.Path() == importPackage.Path() {
