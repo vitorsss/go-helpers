@@ -7,9 +7,9 @@ require (
 	github.com/icholy/digest v0.1.22
 	github.com/jackc/puddle/v2 v2.2.1
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.31.0
-	github.com/stretchr/testify v1.8.4
-	golang.org/x/time v0.3.0
+	github.com/rs/zerolog v1.32.0
+	github.com/stretchr/testify v1.9.0
+	golang.org/x/time v0.5.0
 	mvdan.cc/gofumpt v0.6.0
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3
 )
