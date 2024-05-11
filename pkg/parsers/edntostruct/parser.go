@@ -94,19 +94,26 @@ func (p *Parser) parseEDNTypeToGolangStruct(
 
 	structs := make([]*types.Named, 0, len(byNamespace))
 	for namespace, fields := range byNamespace {
-		object := createStructOrderedFields(
-			destPackage,
-			prefix,
-			namespace,
-			fields,
-		)
+		name := fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace))
+		var object *types.Named
+		if fn, ok := p.options.namedTypes[name]; ok {
+			var importPackage *types.Package
+			importPackage, object = fn()
+			addImportFixName(destPackage, importPackage)
+		} else {
+			object = createStructOrderedFields(
+				destPackage,
+				name,
+				fields,
+			)
+			existingObject := destPackage.Scope().Insert(object.Obj())
+			if existingObject != nil {
+				return nil, errors.New("unsuported mixed types")
+			}
+		}
 		structs = append(structs,
 			object,
 		)
-		existingObject := destPackage.Scope().Insert(object.Obj())
-		if existingObject != nil {
-			return nil, errors.New("unsuported mixed types")
-		}
 	}
 
 	var result types.Type
@@ -238,9 +245,7 @@ func (p *Parser) parseEDNTypeToGolangField(
 		}
 		var importPackage *types.Package
 		importPackage, fieldType = typeFn()
-		if importPackage != nil {
-			addImportFixName(destPackage, importPackage)
-		}
+		addImportFixName(destPackage, importPackage)
 	}
 	nameCamel := strcase.ToCamel(name)
 	if nameCamel == "Id" {

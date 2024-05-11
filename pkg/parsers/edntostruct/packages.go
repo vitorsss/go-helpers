@@ -10,6 +10,9 @@ func addImportFixName(
 	destPackage *types.Package,
 	importPackage *types.Package,
 ) {
+	if destPackage == nil || importPackage == nil {
+		return
+	}
 	if destPackage.Path() == importPackage.Path() {
 		return
 	}
