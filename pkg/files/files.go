@@ -40,7 +40,7 @@ func ReadFileInfo(filePath string) (*FileInfo, error) {
 }
 
 func ReadDirsFileInfos(dirNames []string, regex *regexp.Regexp) ([]FileInfo, error) {
-	return readDirs[FileInfo](dirNames, regex, ReadFileInfo)
+	return readDirs(dirNames, regex, ReadFileInfo)
 }
 
 func readDirs[T any](dirNames []string, regex *regexp.Regexp, readFileFn func(filePath string) (*T, error)) ([]T, error) {
@@ -68,7 +68,7 @@ func readDirs[T any](dirNames []string, regex *regexp.Regexp, readFileFn func(fi
 		}
 	}
 
-	subFilesContent, err := readDirs[T](subDirs, regex, readFileFn)
+	subFilesContent, err := readDirs(subDirs, regex, readFileFn)
 	if err != nil {
 		return nil, err
 	}

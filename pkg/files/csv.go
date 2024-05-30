@@ -61,7 +61,7 @@ func ReadCSVFile(filePath string, comma rune, hasHeaders bool) (*FileContent[[]m
 }
 
 func ReadCSVDirs(dirNames []string, comma rune, hasHeaders bool, regex *regexp.Regexp) ([]FileContent[[]map[string]string], error) {
-	return readDirs[FileContent[[]map[string]string]](dirNames, regex, func(filePath string) (*FileContent[[]map[string]string], error) {
+	return readDirs(dirNames, regex, func(filePath string) (*FileContent[[]map[string]string], error) {
 		return ReadCSVFile(filePath, comma, hasHeaders)
 	})
 }

@@ -3,14 +3,14 @@ package files
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
+	"encoding/xml"
 	"os"
 	"regexp"
 
 	"github.com/pkg/errors"
 )
 
-func ReadJSONFile[T any](filePath string) (*FileContent[T], error) {
+func ReadXMLFile[T any](filePath string) (*FileContent[T], error) {
 	fileInfo, err := ReadFileInfo(filePath)
 	if err != nil {
 		return nil, err
@@ -22,7 +22,7 @@ func ReadJSONFile[T any](filePath string) (*FileContent[T], error) {
 	}
 
 	var content T
-	err = json.Unmarshal(rawContent, &content)
+	err = xml.Unmarshal(rawContent, &content)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal content")
 	}
@@ -33,19 +33,19 @@ func ReadJSONFile[T any](filePath string) (*FileContent[T], error) {
 	}, nil
 }
 
-func ReadJSONDirs[T any](dirNames []string, regex *regexp.Regexp) ([]FileContent[T], error) {
-	return readDirs(dirNames, regex, ReadJSONFile[T])
+func ReadXMLDirs[T any](dirNames []string, regex *regexp.Regexp) ([]FileContent[T], error) {
+	return readDirs(dirNames, regex, ReadXMLFile[T])
 }
 
-func WriteJSONFile(filePath string, content interface{}) error {
-	data, err := json.Marshal(content)
+func WriteXMLFile(filePath string, content interface{}) error {
+	data, err := xml.Marshal(content)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal content")
 	}
 	return WriteFile(filePath, data)
 }
 
-func ReadNDJSONFile[T any](filePath string) (*FileContent[[]T], error) {
+func ReadNDXMLFile[T any](filePath string) (*FileContent[[]T], error) {
 	fileInfo, err := ReadFileInfo(filePath)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func ReadNDJSONFile[T any](filePath string) (*FileContent[[]T], error) {
 
 	for scanner.Scan() {
 		var contentLine T
-		err = json.Unmarshal([]byte(scanner.Text()), &contentLine)
+		err = xml.Unmarshal([]byte(scanner.Text()), &contentLine)
 		if err != nil {
 			return nil, err
 		}
@@ -74,14 +74,14 @@ func ReadNDJSONFile[T any](filePath string) (*FileContent[[]T], error) {
 	}, nil
 }
 
-func ReadNDJSONDirs[T any](dirNames []string, regex *regexp.Regexp) ([]FileContent[[]T], error) {
-	return readDirs(dirNames, regex, ReadNDJSONFile[T])
+func ReadNDXMLDirs[T any](dirNames []string, regex *regexp.Regexp) ([]FileContent[[]T], error) {
+	return readDirs(dirNames, regex, ReadNDXMLFile[T])
 }
 
-func WriteNDJSONFile[T any](filePath string, content []T) error {
+func WriteNDXMLFile[T any](filePath string, content []T) error {
 	buffer := bytes.NewBuffer([]byte{})
 	for _, c := range content {
-		data, err := json.Marshal(c)
+		data, err := xml.Marshal(c)
 		if err != nil {
 			return err
 		}
