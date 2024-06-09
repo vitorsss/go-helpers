@@ -29,6 +29,8 @@ func (e *enumType) ExtraString() string {
 		buffer.WriteString("\t")
 		buffer.WriteString(e.name)
 		buffer.WriteString(strcase.ToCamel(value))
+		buffer.WriteString(" ")
+		buffer.WriteString(e.name)
 		buffer.WriteString(" = \"")
 		buffer.WriteString(value)
 		buffer.WriteString("\"\n")

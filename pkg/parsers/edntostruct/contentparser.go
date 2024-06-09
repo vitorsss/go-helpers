@@ -13,36 +13,50 @@ import (
 	"olympos.io/encoding/edn"
 )
 
-type Parser struct {
+type ContentParser struct {
 	options *options
 }
 
-func NewParser(opts ...Option) *Parser {
+func NewContentParser(opts ...Option) *ContentParser {
 	opt := defaultOptions()
 
 	for _, optFn := range opts {
 		optFn(opt)
 	}
 
-	return &Parser{
+	return &ContentParser{
 		options: opt,
 	}
 }
 
-func (p *Parser) ParseEDNToGolang(
+func (p *ContentParser) ParseEDNContentToGolang(
 	destPackage *types.Package,
 	prefix string,
 	ednContent []byte,
 ) ([]byte, error) {
-	ednMap := map[interface{}]interface{}{}
+	var ednMap interface{}
 	err := edn.Unmarshal(ednContent, &ednMap)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = p.parseEDNTypeToGolangStruct(
+	return p.ParseLoadedEDNToGolang(
 		destPackage,
 		prefix,
+		ednMap,
+	)
+}
+
+func (p *ContentParser) ParseLoadedEDNToGolang(
+	destPackage *types.Package,
+	prefix string,
+	ednMap interface{},
+) ([]byte, error) {
+	_, _, err := p.parseEDNTypeToGolangField(
+		destPackage,
+		prefix,
+		"",
+		"",
 		ednMap,
 	)
 	if err != nil {
@@ -52,7 +66,7 @@ func (p *Parser) ParseEDNToGolang(
 	return printPackage(destPackage)
 }
 
-func (p *Parser) parseEDNTypeToGolangStruct(
+func (p *ContentParser) parseEDNTypeToGolangStruct(
 	destPackage *types.Package,
 	prefix string,
 	ednType map[interface{}]interface{},
@@ -126,7 +140,7 @@ func (p *Parser) parseEDNTypeToGolangStruct(
 	return result, nil
 }
 
-func (p *Parser) parseEDNTypeToGolangField(
+func (p *ContentParser) parseEDNTypeToGolangField(
 	destPackage *types.Package,
 	prefix string,
 	namespace string,
