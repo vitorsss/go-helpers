@@ -106,38 +106,12 @@ func (p *ContentParser) parseEDNTypeToGolangStruct(
 		})
 	}
 
-	structs := make([]*types.Named, 0, len(byNamespace))
-	for namespace, fields := range byNamespace {
-		name := fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace))
-		var object *types.Named
-		if fn, ok := p.options.namedTypes[name]; ok {
-			var importPackage *types.Package
-			importPackage, object = fn()
-			addImportFixName(destPackage, importPackage)
-		} else {
-			object = createStructOrderedFields(
-				destPackage,
-				name,
-				fields,
-			)
-			existingObject := destPackage.Scope().Insert(object.Obj())
-			if existingObject != nil {
-				return nil, errors.New("unsuported mixed types")
-			}
-		}
-		structs = append(structs,
-			object,
-		)
-	}
-
-	var result types.Type
-	if len(structs) == 1 {
-		result = structs[0]
-	} else {
-		return nil, errors.New("unsuported mixed namespaces")
-	}
-
-	return result, nil
+	return createStructs(
+		destPackage,
+		p.options,
+		prefix,
+		byNamespace,
+	)
 }
 
 func (p *ContentParser) parseEDNTypeToGolangField(
@@ -240,6 +214,13 @@ func (p *ContentParser) parseEDNTypeToGolangField(
 			if err != nil {
 				return nil, "", err
 			}
+		}
+	case edn.Symbol:
+		switch v {
+		case "Any":
+			fieldType = types.NewInterfaceType(nil, nil)
+		default:
+			return nil, "", errors.New("unmapped symbol type")
 		}
 	case time.Time:
 		tagType = "inst"
