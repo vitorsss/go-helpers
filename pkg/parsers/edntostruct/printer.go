@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/pkg/errors"
 	"mvdan.cc/gofumpt/format"
 )
 
@@ -52,11 +53,16 @@ func printPackage(
 		}
 	}
 
-	return format.Source(
+	data, err := format.Source(
 		buffer.Bytes(),
 		format.Options{
 			ModulePath: destPackage.Path(),
 			ExtraRules: true,
 		},
 	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error while formatting: %s", string(buffer.Bytes()))
+	}
+
+	return data, nil
 }
