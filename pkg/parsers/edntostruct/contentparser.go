@@ -72,46 +72,121 @@ func (p *ContentParser) parseEDNTypeToGolangStruct(
 	ednType map[interface{}]interface{},
 ) (types.Type, error) {
 	byNamespace := map[string][]fieldTagPair{}
+	keyValues := map[string][]interface{}{}
+	hasStructKey := false
+	keyTypes := []types.Type{}
 	for iKey, iVal := range ednType {
-		var key string
-		switch v := iKey.(type) {
-		case string:
-			key = v
-		case edn.Keyword:
-			key = string(v)
-		default:
-			return nil, errors.New("unmapped key type")
-		}
-		keyParts := strings.Split(key, "/")
-		name := keyParts[len(keyParts)-1]
-		namespace := ""
-		if len(keyParts) > 1 {
-			namespace = keyParts[0]
-		}
-
-		parsedField, tag, err := p.parseEDNTypeToGolangField(
+		key, keyType, err := p.parseKey(
 			destPackage,
-			fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
-			namespace,
-			name,
-			iVal,
+			prefix,
+			iKey,
 		)
 		if err != nil {
 			return nil, err
 		}
+		if key == "" {
+			hasStructKey = true
+		}
 
-		byNamespace[namespace] = append(byNamespace[namespace], fieldTagPair{
-			field: parsedField,
-			tag:   tag,
-		})
+		keyTypes = append(keyTypes, keyType)
+		keyValues[key] = append(keyValues[key], iVal)
 	}
 
+	for key, values := range keyValues {
+		for _, iVal := range values {
+			keyParts := strings.Split(key, "/")
+			name := ""
+			namespace := ""
+			if !hasStructKey {
+				name = keyParts[len(keyParts)-1]
+				if len(keyParts) > 1 {
+					namespace = keyParts[0]
+				}
+			}
+
+			parsedField, tag, err := p.parseEDNTypeToGolangField(
+				destPackage,
+				fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
+				namespace,
+				name,
+				iVal,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			byNamespace[namespace] = append(byNamespace[namespace], fieldTagPair{
+				field: parsedField,
+				tag:   tag,
+			})
+		}
+	}
+
+	if hasStructKey {
+		var mapKeyType types.Type
+		for _, keyType := range keyTypes {
+			if mapKeyType == nil {
+				mapKeyType = keyType
+				continue
+			}
+			if mapKeyType.String() != keyType.String() {
+				mapKeyType = types.NewInterfaceType(nil, nil)
+				break
+			}
+		}
+		var mapValueType types.Type
+		for _, namespaceFields := range byNamespace {
+			for _, pair := range namespaceFields {
+				if mapValueType == nil {
+					mapValueType = pair.field.Type()
+					continue
+				}
+				if mapValueType.String() != pair.field.Type().String() {
+					mapValueType = types.NewInterfaceType(nil, nil)
+				}
+			}
+		}
+		return types.NewMap(mapKeyType, mapValueType), nil
+	}
 	return createStructs(
 		destPackage,
 		p.options,
 		prefix,
 		byNamespace,
 	)
+}
+
+func (p *ContentParser) parseKey(
+	destPackage *types.Package,
+	prefix string,
+	iKey interface{},
+) (string, types.Type, error) {
+	var key string
+	var keyType types.Type
+	switch v := iKey.(type) {
+	case string:
+		key = v
+		keyType = types.Typ[types.String]
+	case edn.Keyword:
+		key = string(v)
+		keyType = types.Typ[types.String]
+	case map[interface{}]interface{}:
+		keyType, err := p.parseEDNTypeToGolangStruct(
+			destPackage,
+			prefix,
+			v,
+		)
+		return "", keyType, err
+	case *interface{}:
+		return p.parseKey(
+			destPackage,
+			prefix,
+			*v,
+		)
+	default:
+		return "", nil, errors.New("unmapped key type")
+	}
+	return key, keyType, nil
 }
 
 func (p *ContentParser) parseEDNTypeToGolangField(
