@@ -173,7 +173,7 @@ func (p *ContentParser) parseKey(
 	case map[interface{}]interface{}:
 		keyType, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
-			prefix,
+			fmt.Sprintf("%sKey", prefix),
 			v,
 		)
 		return "", keyType, err
