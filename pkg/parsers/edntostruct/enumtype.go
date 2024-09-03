@@ -89,6 +89,7 @@ func createEnumOrderedValues(
 	name string,
 	values []string,
 ) *types.Named {
+	slices.Sort(values)
 	enumType := &enumType{
 		namespace: namespace,
 		name:      name,
@@ -127,6 +128,8 @@ func newEnumType(
 	addImportFixName(destPackage, EDNPackage)
 	if namespace != "" {
 		addImportFixName(destPackage, ErrorsPackage)
+		addImportFixName(destPackage, StringsPackage)
+		addImportFixName(destPackage, FormatPackage)
 	}
 
 	return object, nil

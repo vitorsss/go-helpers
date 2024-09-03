@@ -21,7 +21,7 @@ func printPackage(
 	destPackage *types.Package,
 ) ([]byte, error) {
 	qualifier := func(other *types.Package) string {
-		if destPackage == other {
+		if destPackage.Path() == other.Path() {
 			return ""
 		}
 		return other.Name()
