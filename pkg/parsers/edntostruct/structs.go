@@ -54,12 +54,17 @@ func createStructs(
 	destPackage *types.Package,
 	options *options,
 	prefix string,
+	parentNamespace string,
 	byNamespace map[string][]fieldTagPair,
 ) (types.Type, error) {
 	var err error
 	structs := make([]*types.Named, 0, len(byNamespace))
 	for namespace, fields := range byNamespace {
-		name := fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace))
+		sufix := namespace
+		if namespace == "" && parentNamespace != "" {
+			sufix = "unnamespaced"
+		}
+		name := fmt.Sprintf("%s%s", prefix, strcase.ToCamel(sufix))
 		var object *types.Named
 		if fn, ok := options.namedTypes[name]; ok {
 			var importPackage *types.Package

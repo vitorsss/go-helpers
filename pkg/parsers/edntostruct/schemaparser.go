@@ -67,52 +67,89 @@ func (p *SchemaParser) ParseLoadedSchemaToGolang(
 func (p *SchemaParser) parseEDNTypeToGolangStruct(
 	destPackage *types.Package,
 	prefix string,
+	parentNamespace string,
 	schemaType map[interface{}]interface{},
 ) (types.Type, error) {
 	byNamespace := map[string][]fieldTagPair{}
+	keyValues := map[string][]interface{}{}
+	hasStructKey := false
+	keyTypes := []types.Type{}
 	for iKey, iVal := range schemaType {
-		key, iVal, err := p.parseKey(iKey, iVal)
-		if err != nil {
-			return nil, err
-		}
-		keyParts := strings.Split(key, "/")
-		name := keyParts[len(keyParts)-1]
-		namespace := ""
-		if len(keyParts) > 1 {
-			namespace = keyParts[0]
-		}
-
-		parsedField, tag, err := p.parseEDNTypeToGolangField(
+		key, keyType, iVal, err := p.parseKey(
 			destPackage,
-			fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
-			namespace,
-			name,
+			prefix,
+			parentNamespace,
+			iKey,
 			iVal,
 		)
 		if err != nil {
 			return nil, err
 		}
+		if key == "" {
+			hasStructKey = true
+		}
 
-		byNamespace[namespace] = append(byNamespace[namespace], fieldTagPair{
-			field: parsedField,
-			tag:   tag,
-		})
+		keyTypes = append(keyTypes, keyType)
+		keyValues[key] = append(keyValues[key], iVal)
+	}
+
+	for key, values := range keyValues {
+		for _, iVal := range values {
+			keyParts := strings.Split(key, "/")
+			name := keyParts[len(keyParts)-1]
+			namespace := ""
+			if len(keyParts) > 1 {
+				namespace = keyParts[0]
+			}
+			sufix := namespace
+			if !hasStructKey && sufix == "" && parentNamespace != "" {
+				sufix = "unnamespaced"
+			}
+
+			parsedField, tag, err := p.parseEDNTypeToGolangField(
+				destPackage,
+				fmt.Sprintf("%s%s", prefix, strcase.ToCamel(sufix)),
+				namespace,
+				name,
+				iVal,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			byNamespace[namespace] = append(byNamespace[namespace], fieldTagPair{
+				field: parsedField,
+				tag:   tag,
+			})
+		}
+	}
+
+	if hasStructKey {
+		return createMapType(
+			keyTypes,
+			byNamespace,
+		)
 	}
 
 	return createStructs(
 		destPackage,
 		p.options,
 		prefix,
+		parentNamespace,
 		byNamespace,
 	)
 }
 
 func (p *SchemaParser) parseKey(
+	destPackage *types.Package,
+	prefix string,
+	parentNamespace string,
 	iKey interface{},
 	iVal interface{},
-) (string, interface{}, error) {
+) (string, types.Type, interface{}, error) {
 	var err error
 	var key string
+	var keyType types.Type
 	valResult := iVal
 	switch v := iKey.(type) {
 	case string:
@@ -124,20 +161,40 @@ func (p *SchemaParser) parseKey(
 		case edn.Symbol:
 			switch first {
 			case "optional-key":
-				key, _, err = p.parseKey(v[1], iVal)
+				key, keyType, _, err = p.parseKey(
+					destPackage,
+					prefix,
+					parentNamespace,
+					v[1],
+					iVal,
+				)
 				valResult = &iVal
 			default:
-				return "", nil, errors.New("unmapped key modifier symbol")
+				return "", nil, nil, errors.New("unmapped key modifier symbol")
 			}
 		default:
-			return "", nil, errors.New("unmapped key array first type")
+			return "", nil, nil, errors.New("unmapped key array first type")
 		}
+	case map[interface{}]interface{}:
+		keyType, err := p.parseEDNTypeToGolangStruct(
+			destPackage,
+			fmt.Sprintf("%sKey", prefix),
+			parentNamespace,
+			v,
+		)
+		return "", keyType, iVal, err
 	case *interface{}:
-		key, valResult, err = p.parseKey(*v, iVal)
+		key, keyType, valResult, err = p.parseKey(
+			destPackage,
+			prefix,
+			parentNamespace,
+			*v,
+			iVal,
+		)
 	default:
-		return "", nil, errors.New("unmapped key type")
+		return "", nil, nil, errors.New("unmapped key type")
 	}
-	return key, valResult, err
+	return key, keyType, valResult, err
 }
 
 func (p *SchemaParser) parseEDNTypeToGolangField(
@@ -159,6 +216,7 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 		structBase, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
 			prefix,
+			namespace,
 			v,
 		)
 		if err != nil {

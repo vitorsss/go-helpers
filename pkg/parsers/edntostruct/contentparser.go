@@ -69,6 +69,7 @@ func (p *ContentParser) ParseLoadedEDNToGolang(
 func (p *ContentParser) parseEDNTypeToGolangStruct(
 	destPackage *types.Package,
 	prefix string,
+	parentNamespace string,
 	ednType map[interface{}]interface{},
 ) (types.Type, error) {
 	byNamespace := map[string][]fieldTagPair{}
@@ -79,6 +80,7 @@ func (p *ContentParser) parseEDNTypeToGolangStruct(
 		key, keyType, err := p.parseKey(
 			destPackage,
 			prefix,
+			parentNamespace,
 			iKey,
 		)
 		if err != nil {
@@ -103,10 +105,14 @@ func (p *ContentParser) parseEDNTypeToGolangStruct(
 					namespace = keyParts[0]
 				}
 			}
+			sufix := namespace
+			if !hasStructKey && sufix == "" && parentNamespace != "" {
+				sufix = "unnamespaced"
+			}
 
 			parsedField, tag, err := p.parseEDNTypeToGolangField(
 				destPackage,
-				fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
+				fmt.Sprintf("%s%s", prefix, strcase.ToCamel(sufix)),
 				namespace,
 				name,
 				iVal,
@@ -123,35 +129,16 @@ func (p *ContentParser) parseEDNTypeToGolangStruct(
 	}
 
 	if hasStructKey {
-		var mapKeyType types.Type
-		for _, keyType := range keyTypes {
-			if mapKeyType == nil {
-				mapKeyType = keyType
-				continue
-			}
-			if mapKeyType.String() != keyType.String() {
-				mapKeyType = types.NewInterfaceType(nil, nil)
-				break
-			}
-		}
-		var mapValueType types.Type
-		for _, namespaceFields := range byNamespace {
-			for _, pair := range namespaceFields {
-				if mapValueType == nil {
-					mapValueType = pair.field.Type()
-					continue
-				}
-				if mapValueType.String() != pair.field.Type().String() {
-					mapValueType = types.NewInterfaceType(nil, nil)
-				}
-			}
-		}
-		return types.NewMap(mapKeyType, mapValueType), nil
+		return createMapType(
+			keyTypes,
+			byNamespace,
+		)
 	}
 	return createStructs(
 		destPackage,
 		p.options,
 		prefix,
+		parentNamespace,
 		byNamespace,
 	)
 }
@@ -159,6 +146,7 @@ func (p *ContentParser) parseEDNTypeToGolangStruct(
 func (p *ContentParser) parseKey(
 	destPackage *types.Package,
 	prefix string,
+	parentNamespace string,
 	iKey interface{},
 ) (string, types.Type, error) {
 	var key string
@@ -174,6 +162,7 @@ func (p *ContentParser) parseKey(
 		keyType, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
 			fmt.Sprintf("%sKey", prefix),
+			parentNamespace,
 			v,
 		)
 		return "", keyType, err
@@ -181,6 +170,7 @@ func (p *ContentParser) parseKey(
 		return p.parseKey(
 			destPackage,
 			prefix,
+			parentNamespace,
 			*v,
 		)
 	default:
@@ -208,6 +198,7 @@ func (p *ContentParser) parseEDNTypeToGolangField(
 		structBase, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
 			prefix,
+			namespace,
 			v,
 		)
 		if err != nil {
