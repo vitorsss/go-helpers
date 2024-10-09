@@ -27,11 +27,13 @@ func genericTypeFn(t types.Type) TypeFn {
 }
 
 var (
-	EDNPackage    = types.NewPackage("olympos.io/encoding/edn", "edn")
-	EntityPackage = types.NewPackage("github.com/vitorsss/go-helpers/pkg/entity", "entity")
-	ErrorsPackage = types.NewPackage("errors", "errors")
-	TimePackage   = types.NewPackage("time", "time")
-	UUIDPackage   = types.NewPackage("github.com/google/uuid", "uuid")
+	EDNPackage     = types.NewPackage("olympos.io/encoding/edn", "edn")
+	EntityPackage  = types.NewPackage("github.com/vitorsss/go-helpers/pkg/entity", "entity")
+	ErrorsPackage  = types.NewPackage("errors", "errors")
+	FormatPackage  = types.NewPackage("fmt", "fmt")
+	StringsPackage = types.NewPackage("strings", "strings")
+	TimePackage    = types.NewPackage("time", "time")
+	UUIDPackage    = types.NewPackage("github.com/google/uuid", "uuid")
 
 	UUIDType = types.NewNamed(
 		types.NewTypeName(

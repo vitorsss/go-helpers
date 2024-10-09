@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/pkg/errors"
 	"mvdan.cc/gofumpt/format"
 )
 
@@ -20,7 +21,7 @@ func printPackage(
 	destPackage *types.Package,
 ) ([]byte, error) {
 	qualifier := func(other *types.Package) string {
-		if destPackage == other {
+		if destPackage.Path() == other.Path() {
 			return ""
 		}
 		return other.Name()
@@ -52,11 +53,16 @@ func printPackage(
 		}
 	}
 
-	return format.Source(
+	data, err := format.Source(
 		buffer.Bytes(),
 		format.Options{
 			ModulePath: destPackage.Path(),
 			ExtraRules: true,
 		},
 	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error while formatting: %s", string(buffer.Bytes()))
+	}
+
+	return data, nil
 }
