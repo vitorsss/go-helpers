@@ -39,7 +39,7 @@ func (r *response) Unmarshal(dest interface{}) error {
 	}
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse media type")
+		return errors.Wrapf(err, "failed to parse media type for content-type - %s - %v", contentType, r.Headers())
 	}
 	switch mediaType {
 	case "application/json":

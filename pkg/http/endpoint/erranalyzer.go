@@ -34,7 +34,7 @@ func defaultErrAnalyzer(res *http.Response) error {
 		if err != nil {
 			return err
 		}
-		return errors.Errorf("endpoint: response error - %s", string(content))
+		return errors.Errorf("endpoint: response error - %d - %s", res.StatusCode, string(content))
 	}
 	return nil
 }
