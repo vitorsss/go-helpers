@@ -20,6 +20,10 @@ func UUIDTypeFn() (*types.Package, types.Type) {
 	return UUIDPackage, UUIDType
 }
 
+func KeywordTypeFn() (*types.Package, types.Type) {
+	return EDNPackage, KeywordType
+}
+
 func genericTypeFn(t types.Type) TypeFn {
 	return func() (*types.Package, types.Type) {
 		return nil, t
@@ -53,6 +57,16 @@ var (
 			nil,
 		),
 		nil,
+		nil,
+	)
+	KeywordType = types.NewNamed(
+		types.NewTypeName(
+			token.NoPos,
+			EDNPackage,
+			"Keyword",
+			nil,
+		),
+		types.Typ[types.String],
 		nil,
 	)
 )

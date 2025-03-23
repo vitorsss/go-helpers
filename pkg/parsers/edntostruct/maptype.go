@@ -8,6 +8,9 @@ func createMapType(
 ) (types.Type, error) {
 	var mapKeyType types.Type
 	for _, keyType := range keyTypes {
+		if keyType == nil {
+			continue
+		}
 		if mapKeyType == nil {
 			mapKeyType = keyType
 			continue

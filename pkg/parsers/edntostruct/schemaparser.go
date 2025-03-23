@@ -156,6 +156,19 @@ func (p *SchemaParser) parseKey(
 		key = v
 	case edn.Keyword:
 		key = string(v)
+	case edn.Symbol:
+		switch v {
+		case "Keyword":
+			keyType, err = newEnumType(
+				destPackage,
+				parentNamespace,
+				fmt.Sprintf("%sKey", prefix),
+			)
+		case "Str":
+			keyType = types.Typ[types.String]
+		default:
+			return "", nil, nil, errors.Errorf("unmapped key modifier symbol: %s", v)
+		}
 	case []interface{}:
 		switch first := v[0].(type) {
 		case edn.Symbol:
@@ -169,11 +182,14 @@ func (p *SchemaParser) parseKey(
 					iVal,
 				)
 				valResult = &iVal
+			case "either":
+				key = ""
+				keyType = types.NewInterfaceType(nil, nil) // FIXME: should return merged type of either
 			default:
-				return "", nil, nil, errors.New("unmapped key modifier symbol")
+				return "", nil, nil, errors.Errorf("unmapped key modifier symbol: %s", first)
 			}
 		default:
-			return "", nil, nil, errors.New("unmapped key array first type")
+			return "", nil, nil, errors.Errorf("unmapped key array first type: %#v", first)
 		}
 	case map[interface{}]interface{}:
 		keyType, err := p.parseEDNTypeToGolangStruct(
@@ -192,7 +208,7 @@ func (p *SchemaParser) parseKey(
 			iVal,
 		)
 	default:
-		return "", nil, nil, errors.New("unmapped key type")
+		return "", nil, nil, errors.Errorf("unmapped key type: %#v", v)
 	}
 	return key, keyType, valResult, err
 }
@@ -245,6 +261,46 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 			switch firstV := first.(type) {
 			case edn.Symbol:
 				switch firstV {
+				case "conditional":
+					for i := 1; i < len(rest); i += 2 {
+						varType, _, err = p.parseEDNTypeToGolangField(
+							destPackage,
+							prefix,
+							namespace,
+							name,
+							rest[i],
+						)
+						if err != nil {
+							return nil, "", err
+						}
+					}
+					fieldType = types.NewInterfaceType(nil, nil) // FIXME: should return merged types of the conditional
+				case "maybe":
+					varType, _, err = p.parseEDNTypeToGolangField(
+						destPackage,
+						prefix,
+						namespace,
+						name,
+						v[1],
+					)
+					if err != nil {
+						return nil, "", err
+					}
+					fieldType = types.NewPointer(varType.Type())
+				case "recursive":
+					fieldType = types.NewInterfaceType(nil, nil) // FIXME: should return pointer for the recursive struct
+				case "eq":
+					varType, _, err = p.parseEDNTypeToGolangField(
+						destPackage,
+						prefix,
+						namespace,
+						name,
+						v[1],
+					)
+					if err != nil {
+						return nil, "", err
+					}
+					fieldType = varType.Type()
 				case "constrained":
 					varType, _, err = p.parseEDNTypeToGolangField(
 						destPackage,
@@ -268,7 +324,7 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 						case edn.Keyword:
 							value = string(iv)
 						default:
-							return nil, "", errors.New("unmapped enum value type")
+							return nil, "", errors.Errorf("unmapped enum value type: %#v", iv)
 						}
 						valueParts := strings.Split(value, "/")
 						if len(valueParts) > 1 {
@@ -276,7 +332,7 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 							if namespace == "" {
 								namespace = valueParts[0]
 							} else if namespace != valueParts[0] {
-								return nil, "", errors.New("mixed enum namespace")
+								return nil, "", errors.Errorf("mixed enum namespace: %s - %s", namespace, valueParts[0])
 							}
 						}
 						restV = append(restV, value)
@@ -298,10 +354,10 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 						}
 					}
 				default:
-					return nil, "", errors.New("unmapped modifier symbol")
+					return nil, "", errors.Errorf("unmapped modifier symbol: %s", firstV)
 				}
 			default:
-				return nil, "", errors.New("unmapped modifier")
+				return nil, "", errors.Errorf("unmapped modifier type: %#v", firstV)
 			}
 		}
 	case map[interface{}]bool:
@@ -326,6 +382,7 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 		if pointer, ok := elem.(*types.Pointer); ok {
 			elem = pointer.Elem()
 		}
+		fmt.Println(destPackage, varType.Type(), elem)
 		fieldType, err = newSetType(destPackage, elem)
 		if err != nil {
 			return nil, "", err
@@ -356,16 +413,24 @@ func (p *SchemaParser) parseEDNTypeToGolangField(
 			tagType = "string"
 		case "Uuid":
 			tagType = "uuid"
+		case "Num":
+			tagType = "float64"
+		case "Any":
+			tagType = "any"
+		case "Keyword":
+			tagType = "keyword"
 		default:
 			return nil, "", errors.Errorf("unmapped symbol type: %#v", v)
 		}
+	case edn.Keyword:
+		tagType = "keyword"
 	default:
-		return nil, "", errors.Errorf("unmapped value type: %#v", v)
+		return nil, "", errors.Errorf("unmapped value type: %#v - %#T", v, v)
 	}
 	if tagType != "" {
 		typeFn, ok := p.options.tagTypes[tagType]
 		if !ok {
-			return nil, "", errors.New("unmapped tagname")
+			return nil, "", errors.Errorf("unmapped tagname: %s", tagType)
 		}
 		var importPackage *types.Package
 		importPackage, fieldType = typeFn()
