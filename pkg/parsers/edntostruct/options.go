@@ -16,6 +16,8 @@ func defaultOptions() *options {
 			"bool":    genericTypeFn(types.Typ[types.Bool]),
 			"float64": genericTypeFn(types.Typ[types.Float64]),
 			"int64":   genericTypeFn(types.Typ[types.Int64]),
+			"any":     genericTypeFn(types.NewInterfaceType(nil, nil)),
+			"keyword": KeywordTypeFn,
 		},
 		namedTypes: map[string]NamedTypeFn{},
 	}

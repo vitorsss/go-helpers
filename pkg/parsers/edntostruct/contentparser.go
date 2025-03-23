@@ -13,36 +13,50 @@ import (
 	"olympos.io/encoding/edn"
 )
 
-type Parser struct {
+type ContentParser struct {
 	options *options
 }
 
-func NewParser(opts ...Option) *Parser {
+func NewContentParser(opts ...Option) *ContentParser {
 	opt := defaultOptions()
 
 	for _, optFn := range opts {
 		optFn(opt)
 	}
 
-	return &Parser{
+	return &ContentParser{
 		options: opt,
 	}
 }
 
-func (p *Parser) ParseEDNToGolang(
+func (p *ContentParser) ParseEDNContentToGolang(
 	destPackage *types.Package,
 	prefix string,
 	ednContent []byte,
 ) ([]byte, error) {
-	ednMap := map[interface{}]interface{}{}
+	var ednMap interface{}
 	err := edn.Unmarshal(ednContent, &ednMap)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = p.parseEDNTypeToGolangStruct(
+	return p.ParseLoadedEDNToGolang(
 		destPackage,
 		prefix,
+		ednMap,
+	)
+}
+
+func (p *ContentParser) ParseLoadedEDNToGolang(
+	destPackage *types.Package,
+	prefix string,
+	ednMap interface{},
+) ([]byte, error) {
+	_, _, err := p.parseEDNTypeToGolangField(
+		destPackage,
+		prefix,
+		"",
+		"",
 		ednMap,
 	)
 	if err != nil {
@@ -52,81 +66,120 @@ func (p *Parser) ParseEDNToGolang(
 	return printPackage(destPackage)
 }
 
-func (p *Parser) parseEDNTypeToGolangStruct(
+func (p *ContentParser) parseEDNTypeToGolangStruct(
 	destPackage *types.Package,
 	prefix string,
+	parentNamespace string,
 	ednType map[interface{}]interface{},
 ) (types.Type, error) {
 	byNamespace := map[string][]fieldTagPair{}
+	keyValues := map[string][]interface{}{}
+	hasStructKey := false
+	keyTypes := []types.Type{}
 	for iKey, iVal := range ednType {
-		var key string
-		switch v := iKey.(type) {
-		case string:
-			key = v
-		case edn.Keyword:
-			key = string(v)
-		default:
-			return nil, errors.New("unmapped key type")
-		}
-		keyParts := strings.Split(key, "/")
-		name := keyParts[len(keyParts)-1]
-		namespace := ""
-		if len(keyParts) > 1 {
-			namespace = keyParts[0]
-		}
-
-		parsedField, tag, err := p.parseEDNTypeToGolangField(
+		key, keyType, err := p.parseKey(
 			destPackage,
-			fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace)),
-			namespace,
-			name,
-			iVal,
+			prefix,
+			parentNamespace,
+			iKey,
 		)
 		if err != nil {
 			return nil, err
 		}
+		if key == "" {
+			hasStructKey = true
+		}
 
-		byNamespace[namespace] = append(byNamespace[namespace], fieldTagPair{
-			field: parsedField,
-			tag:   tag,
-		})
+		keyTypes = append(keyTypes, keyType)
+		keyValues[key] = append(keyValues[key], iVal)
 	}
 
-	structs := make([]*types.Named, 0, len(byNamespace))
-	for namespace, fields := range byNamespace {
-		name := fmt.Sprintf("%s%s", prefix, strcase.ToCamel(namespace))
-		var object *types.Named
-		if fn, ok := p.options.namedTypes[name]; ok {
-			var importPackage *types.Package
-			importPackage, object = fn()
-			addImportFixName(destPackage, importPackage)
-		} else {
-			object = createStructOrderedFields(
-				destPackage,
-				name,
-				fields,
-			)
-			existingObject := destPackage.Scope().Insert(object.Obj())
-			if existingObject != nil {
-				return nil, errors.New("unsuported mixed types")
+	for key, values := range keyValues {
+		for _, iVal := range values {
+			keyParts := strings.Split(key, "/")
+			name := ""
+			namespace := ""
+			if !hasStructKey {
+				name = keyParts[len(keyParts)-1]
+				if len(keyParts) > 1 {
+					namespace = keyParts[0]
+				}
 			}
+			sufix := namespace
+			if !hasStructKey && sufix == "" && parentNamespace != "" {
+				sufix = "unnamespaced"
+			}
+
+			parsedField, tag, err := p.parseEDNTypeToGolangField(
+				destPackage,
+				fmt.Sprintf("%s%s", prefix, strcase.ToCamel(sufix)),
+				namespace,
+				name,
+				iVal,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			byNamespace[namespace] = append(byNamespace[namespace], fieldTagPair{
+				field: parsedField,
+				tag:   tag,
+			})
 		}
-		structs = append(structs,
-			object,
+	}
+
+	if hasStructKey {
+		return createMapType(
+			keyTypes,
+			byNamespace,
 		)
 	}
-
-	var result types.Type
-	if len(structs) == 1 {
-		result = structs[0]
-	} else {
-		return nil, errors.New("unsuported mixed namespaces")
-	}
-
-	return result, nil
+	return createStructs(
+		destPackage,
+		p.options,
+		prefix,
+		parentNamespace,
+		byNamespace,
+	)
 }
 
-func (p *Parser) parseEDNTypeToGolangField(
+func (p *ContentParser) parseKey(
+	destPackage *types.Package,
+	prefix string,
+	parentNamespace string,
+	iKey interface{},
+) (string, types.Type, error) {
+	var key string
+	var keyType types.Type
+	switch v := iKey.(type) {
+	case string:
+		key = v
+		keyType = types.Typ[types.String]
+	case edn.Keyword:
+		key = string(v)
+		keyType = types.Typ[types.String]
+	case map[interface{}]interface{}:
+		keyType, err := p.parseEDNTypeToGolangStruct(
+			destPackage,
+			fmt.Sprintf("%sKey", prefix),
+			parentNamespace,
+			v,
+		)
+		return "", keyType, err
+	case *interface{}:
+		return p.parseKey(
+			destPackage,
+			prefix,
+			parentNamespace,
+			*v,
+		)
+	default:
+		return "", nil, errors.New("unmapped key type")
+	}
+	return key, keyType, nil
+}
+
+func (p *ContentParser) parseEDNTypeToGolangField(
 	destPackage *types.Package,
 	prefix string,
 	namespace string,
@@ -145,6 +198,7 @@ func (p *Parser) parseEDNTypeToGolangField(
 		structBase, err := p.parseEDNTypeToGolangStruct(
 			destPackage,
 			prefix,
+			namespace,
 			v,
 		)
 		if err != nil {
@@ -226,6 +280,13 @@ func (p *Parser) parseEDNTypeToGolangField(
 			if err != nil {
 				return nil, "", err
 			}
+		}
+	case edn.Symbol:
+		switch v {
+		case "Any":
+			fieldType = types.NewInterfaceType(nil, nil)
+		default:
+			return nil, "", errors.New("unmapped symbol type")
 		}
 	case time.Time:
 		tagType = "inst"
