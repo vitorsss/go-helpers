@@ -76,7 +76,7 @@ func readDirs[T any](dirNames []string, regex *regexp.Regexp, readFileFn func(fi
 	return result, nil
 }
 
-func CreateDatedOutput(baseDir string, fileName string, extension string) (io.WriteCloser, error) {
+func CreateDatedFileName(baseDir string, fileName string, extension string) (string, error) {
 	now := time.Now()
 	filePath := path.Join(
 		baseDir,
@@ -89,8 +89,13 @@ func CreateDatedOutput(baseDir string, fileName string, extension string) (io.Wr
 	)
 	err := os.MkdirAll(path.Dir(filePath), 0o777)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create directories")
+		return "", errors.Wrap(err, "failed to create directories")
 	}
+	return filePath, nil
+}
+
+func CreateDatedOutput(baseDir string, fileName string, extension string) (io.WriteCloser, error) {
+	filePath, err := CreateDatedFileName(baseDir, fileName, extension)
 	w, err := os.Create(
 		filePath,
 	)

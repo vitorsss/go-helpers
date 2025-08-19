@@ -24,7 +24,7 @@ func ReadEDNFile[T any](filePath string) (*FileContent[T], error) {
 	var content T
 	err = edn.Unmarshal(rawContent, &content)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal edn content")
+		return nil, errors.Wrapf(err, "failed to unmarshal edn content of file: %s", filePath)
 	}
 
 	return &FileContent[T]{
