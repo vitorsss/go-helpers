@@ -3,6 +3,7 @@ package endpoint
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -79,10 +80,10 @@ func (r *response) Unmarshal(dest interface{}) error {
 
 			return nil
 		default:
-			return errors.Wrap(ErrInvalidUnmarshalTarget, "unmapped")
+			return errors.Wrap(ErrInvalidUnmarshalTarget, fmt.Sprintf("unmapped %T", v))
 		}
 	default:
-		return errors.Wrap(ErrUnmappedMediaType, "unmapped")
+		return errors.Wrap(ErrUnmappedMediaType, fmt.Sprintf("unmapped %s", mediaType))
 	}
 }
 

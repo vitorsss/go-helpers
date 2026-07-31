@@ -68,7 +68,17 @@ func init() {
 			},
 		))
 	}
-	Logger = Logger.Level(zerolog.InfoLevel).With().Stack().Logger()
+
+	logLevelStr := os.Getenv("ZEROLOG_LEVEL")
+	if logLevelStr == "" {
+		logLevelStr = "INFO"
+	}
+	logLevel, err := zerolog.ParseLevel(logLevelStr)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	Logger = Logger.Level(logLevel).With().Stack().Logger()
 
 	stdlog.SetFlags(0)
 	stdlog.SetOutput(Logger)
