@@ -33,11 +33,13 @@ func ConcurrencyExec[T any, R any](
 			result := <-resultChan
 			opened--
 			if result.err != nil {
-				if !opt.waitPartialSuccess {
+				if !opt.waitPartialSuccess && !opt.keepProcessingOnErrors {
 					return nil, result.err
 				}
 				lastErr = result.err
-				break
+				if !opt.keepProcessingOnErrors {
+					break
+				}
 			} else {
 				results = append(results, result.result)
 			}
@@ -52,7 +54,7 @@ func ConcurrencyExec[T any, R any](
 	for len(resultChan) > 0 {
 		result := <-resultChan
 		if result.err != nil {
-			if !opt.waitPartialSuccess {
+			if !opt.waitPartialSuccess && !opt.keepProcessingOnErrors {
 				return nil, result.err
 			}
 			lastErr = result.err
@@ -95,14 +97,16 @@ func safeExec[T any, R any](
 
 func defaultOptions() *options {
 	return &options{
-		maxConcurrency:     10,
-		waitPartialSuccess: false,
+		maxConcurrency:         10,
+		waitPartialSuccess:     false,
+		keepProcessingOnErrors: false,
 	}
 }
 
 type options struct {
-	maxConcurrency     int
-	waitPartialSuccess bool
+	maxConcurrency         int
+	waitPartialSuccess     bool
+	keepProcessingOnErrors bool
 }
 
 type ConcurrencyExecOption func(opt *options)
@@ -116,5 +120,11 @@ func WithMaxConcurrency(maxConcurrency int) ConcurrencyExecOption {
 func WithWaitPartialSuccess() ConcurrencyExecOption {
 	return func(opt *options) {
 		opt.waitPartialSuccess = true
+	}
+}
+
+func WithKeepProcessingOnErrors() ConcurrencyExecOption {
+	return func(opt *options) {
+		opt.keepProcessingOnErrors = true
 	}
 }
